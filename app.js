@@ -39,7 +39,11 @@ app.post('/api/v1/tours', (req, res) => {
     duration,
   };
 
-  const data = tours.push(JSON.stringify(newRoute));
+  const data = { ...tours, newRoute };
+
+  console.log(data);
+
+  res.send('Success');
 
   fs.writeFile(`${__dirname}/dev-data/data/tours-simple.json`, data, (err) => {
     if (err) throw err;

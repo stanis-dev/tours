@@ -21,34 +21,20 @@ app.get('/api/v1/tours', (req, res) => {
 
 //Current -> write data to db
 app.post('/api/v1/tours', (req, res) => {
-  const {
-    startLocation,
-    ratingsAverage,
-    ratingsTotal,
-    image,
-    name,
-    duration,
-  } = req.body;
+  const newId = tours[tours.length - 1].id + 1;
+  const newTour = Object.assign({ id: newId }, req.body);
 
-  const newRoute = {
-    startLocation,
-    ratingsAverage,
-    ratingsTotal,
-    image,
-    name,
-    duration,
-  };
+  tours.push(newTour);
 
-  const data = { ...tours, newRoute };
+  fs.writeFile(
+    `${__dirname}/dev-data/data/tours-simple.json`,
+    JSON.stringify(tours),
+    (error) => {
+      if (error) throw error;
+    }
+  );
 
-  console.log(data);
-
-  res.send('Success');
-
-  fs.writeFile(`${__dirname}/dev-data/data/tours-simple.json`, data, (err) => {
-    if (err) throw err;
-    console.log('data has been written');
-  });
+  res.status(200).send(tours);
 });
 
 const PORT = 3000;

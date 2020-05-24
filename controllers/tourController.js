@@ -1,101 +1,92 @@
-const fs = require('fs');
+const Tour = require('./../models/tourModel');
 
-const tours = JSON.parse(
-  fs.readFileSync(`${__dirname}/../dev-data/data/tours-simple.json`)
-);
+const catchAsync = require('../utils/catchAsync');
+const AppError = require('../utils/AppError');
+const factory = require('./handlerFactory');
 
-exports.checkID =
-  ('id',
-  (req, res, next, val) => {
-    const tour = tours.filter((t) => {
-      return t.id == val;
-    });
-    if (tour.length === 0) {
-      return res.status(404).json({
-        status: 'failure',
-        error: 'Tour not found',
-      });
-    }
-    req.tour = tour;
-    next();
-  });
-
-exports.checkBody = (req, res, next) => {
-  const { name, price } = req.body;
-  if (!name) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'property name not defined',
-    });
-  } else if (!price) {
-    return res.status(400).json({
-      status: 'error',
-      message: 'property price not defined',
-    });
-  } else {
-    next();
-  }
+// CREATING ALIAS
+exports.aliasTopTours = (req, res, next) => {
+  req.query.limit = '5';
+  req.query.sort = '-ratingsAverage,price';
+  req.query.fields = 'name,price,ratingsAverage,summary,difficulty';
+  next();
 };
 
-exports.getAllTours = (req, res) => {
-  res.status(200).json({
-    status: 'success',
-    results: tours.length,
-    data: {
-      tours,
+exports.getAllTours = factory.getAll(Tour);
+exports.getTour = factory.getOne(Tour, { path: 'reviews' });
+exports.createTour = factory.createOne(Tour);
+exports.patchTour = factory.updateOne(Tour);
+exports.deleteTour = factory.deleteOne(Tour);
+
+//Learn: check out MongoDB Operators!
+
+exports.getTourStats = catchAsync(async (req, res, next) => {
+  const stats = await Tour.aggregate([
+    {
+      $match: { ratingsAverage: { $gte: 4.5 } }, //This is basically a query
     },
-  });
-};
+    {
+      $group: {
+        _id: { $toUpper: '$difficulty' },
+        numTours: { $sum: 1 },
+        numRatings: { $sum: '$ratingsQuantity' },
+        avgRating: { $avg: '$ratingsAverage' },
+        avgPrice: { $avg: '$price' },
+        minPrice: { $min: '$price' },
+        maxPrice: { $max: '$price' },
+      },
+    },
+    {
+      $sort: { avgPrice: 1 },
+    },
+  ]);
 
-exports.getTour = (req, res) => {
   res.status(200).json({
     status: 'success',
-    tour: req.tour,
+    data: { stats },
   });
-};
+});
 
-exports.createTour = (req, res) => {
-  const newId = tours[tours.length - 1].id + 1;
-  const newTour = Object.assign({ id: newId }, req.body);
+exports.getMonthlyPlan = catchAsync(async (req, res, next) => {
+  const year = req.params.year * 1; //convert string to num
 
-  tours.push(newTour);
+  const plan = await Tour.aggregate([
+    {
+      $unwind: '$startDates',
+    },
+    {
+      $match: {
+        startDates: {
+          $gte: new Date(`${year}-01-01`),
+          $lte: new Date(`${year}-12-31`),
+        },
+      },
+    },
+    {
+      $group: {
+        _id: { $month: '$startDates' },
+        numTourStarts: { $sum: 1 },
+        tours: { $push: '$name' },
+      },
+    },
+    {
+      $addFields: { month: '$_id' },
+    },
+    {
+      $project: {
+        _id: 0,
+      },
+    },
+    {
+      $sort: { numTourStarts: -1 },
+    },
+    {
+      $limit: 12,
+    },
+  ]);
 
-  fs.writeFile(
-    `${__dirname}/../dev-data/data/tours-simple.json`,
-    JSON.stringify(tours),
-    (error) => {
-      if (error) throw error;
-    }
-  );
-
-  res.status(200).send(tours);
-};
-
-exports.patchTour = (req, res) => {
-  const updatedTour = Object.assign({}, req.tour[0], req.body);
-  console.log();
-
-  tours[updatedTour.id] = updatedTour;
-
-  fs.writeFile(
-    `${__dirname}/../dev-data/data/tours-simple.json`,
-    JSON.stringify(tours),
-    (error) => {
-      if (error) throw error;
-    }
-  );
-
-  res.status(201).json({
+  res.status(200).json({
     status: 'success',
-    updatedTour,
+    data: { plan },
   });
-};
-
-exports.deleteTour = (req, res) => {
-  const toursNew = tours.filter((t) => {
-    return t.id != req.tour.id;
-  });
-
-  console.log(toursNew);
-  res.send(toursNew);
-};
+});

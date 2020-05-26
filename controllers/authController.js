@@ -16,7 +16,7 @@ const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
   const cookieOptions = {
     expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+      Date.now() + process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000 //=90days
     ),
     httpOnly: true,
   };
@@ -80,6 +80,8 @@ exports.protect = catchAsync(async (req, res, next) => {
     req.headers.authorization.startsWith('Bearer')
   ) {
     token = req.headers.authorization.split(' ')[1];
+  } else if (req.cookies.jwt) {
+    token = req.cookies.jwt;
   }
 
   if (!token) {
@@ -109,6 +111,34 @@ exports.protect = catchAsync(async (req, res, next) => {
 
   //Grant access, then
   req.user = currentUser; //easier access to user
+  next();
+});
+
+//Only for rendered pages, no errors
+exports.isLoggedIn = catchAsync(async (req, res, next) => {
+  if (req.cookies.jwt) {
+    token = req.cookies.jwt;
+
+    // 1) Verifies token
+    const decoded = await promisify(jwt.verify)(
+      req.cookies.jwt,
+      process.env.JWT_SECRET
+    );
+    // 2) Check if user still exists
+    const currentUser = await User.findById(decoded.id);
+    if (!currentUser) {
+      return next();
+    }
+
+    //3) Check if user changed password after token was issued
+    if (currentUser.changedPasswordAfter(decoded.iat)) {
+      return next();
+    }
+
+    //There is a logged in user, then
+    res.locals.user = currentUser;
+    return next();
+  }
   next();
 });
 

@@ -4,7 +4,7 @@ dotenv.config({ path: './config.env' });
 
 process.on('uncaughtException', (err) => {
   console.log(`UNCAUGHT EXCEPTION. SHUTTING DOWN...`);
-  console.error(err.name, err.message);
+  console.error(err);
   process.exit(1);
 });
 

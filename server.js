@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
+
 dotenv.config({ path: './config.env' });
 
 process.on('uncaughtException', (err) => {
@@ -35,5 +36,12 @@ process.on('unhandledRejection', (err) => {
   server.close(() => {
     //By doing it like this, we are giving the server time to shut down gracefully - finishing the pending requests, etc
     process.exit(1);
+  });
+});
+
+process.on('SIGTERM', () => {
+  console.log('SIGTERM RECEIVED. Shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
   });
 });

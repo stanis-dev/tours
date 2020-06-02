@@ -27,34 +27,64 @@ const handleJWTExpiredError = () =>
 const handlePasswordRecentlyChanged = () =>
   new AppError('User recently changed password. Please, log in again', 401);
 
-const sendErrorDev = (err, res) => {
-  res.status(err.statusCode).json({
-    status: err.status,
-    error: err,
-    message: err.message,
-    stack: err.stack,
+const sendErrorDev = (err, req, res) => {
+  //.originalUrl doesn's start without the host, but like the routes (/api/v1...) --> This way we can test whether error comes from /api or not
+  // API
+  if (req.originalUrl.startsWith('/api')) {
+    return res.status(err.statusCode).json({
+      status: err.status,
+      error: err,
+      message: err.message,
+      stack: err.stack,
+    });
+  }
+  //RENDERED WEBSITE
+  /* 
+  This executes for the front-end routes. Being non-api errors, we need a non-api method of dealing with them.
+  So we will render the template with the name 'error' 
+  */
+  console.error('ERROR 💥', err);
+  return res.status(err.statusCode).render('error', {
+    title: 'Something went wrong',
+    msg: err.message,
   });
 };
 
-const sendErrorProd = (err, res) => {
-  //Operational, trusted error: send message to client
-  if (err.isOperational) {
-    console.log(err);
-
-    res.status(err.statusCode).json({
-      status: err.status,
-      message: err.message,
-    });
+const sendErrorProd = (err, req, res) => {
+  // A) API error? Enter here
+  if (req.originalUrl.startsWith('/api')) {
+    //Operational, trusted error: send message to client
+    if (err.isOperational) {
+      return res.status(err.statusCode).json({
+        status: err.status,
+        message: err.message,
+      });
+    }
     //Programming or other unknown error: don't leak error details
-  } else {
     //1)Log error
     console.error('ERROR 💥', err);
     //2)Send generic message
-    res.status(500).json({
+    return res.status(500).json({
       status: 'error',
       message: 'Something went very wrong',
     });
   }
+  // B) RENDERED WEBSITE error? Then here
+  if (err.isOperational) {
+    //Operational, trusted error: send message to client
+    return res.status(err.statusCode).render('error', {
+      title: 'Something went wrong',
+      msg: err.message,
+    });
+  }
+  //Programming or other unknown error: don't leak error details
+  //1)Log error
+  console.error('ERROR 💥', err);
+  //2)Send generic message
+  return res.status(err.statusCode).render('error', {
+    title: 'Something went wrong',
+    msg: 'Please try again later',
+  });
 };
 
 module.exports = (err, req, res, next) => {
@@ -62,7 +92,7 @@ module.exports = (err, req, res, next) => {
   err.status = err.status || 'error';
 
   if (process.env.NODE_ENV === 'development') {
-    sendErrorDev(err, res);
+    sendErrorDev(err, req, res);
   } else if (process.env.NODE_ENV === 'production') {
     let error = { ...err };
     if (error.name === 'CastError') error = handleCastError(error);
@@ -74,6 +104,6 @@ module.exports = (err, req, res, next) => {
       error.message === 'User recently changed password. Please, log in again'
     )
       error = handlePasswordRecentlyChanged();
-    sendErrorProd(error, res);
+    sendErrorProd(error, req, res);
   }
 };

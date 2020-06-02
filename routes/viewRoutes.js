@@ -6,9 +6,9 @@ const {
   updateUserData,
   getAccount,
   getMyTours,
+  alerts,
 } = require('../controllers/viewController');
 const { isLoggedIn, protect } = require('../controllers/authController');
-const {} = require('../controllers/bookingController');
 
 const router = express.Router();
 

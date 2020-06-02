@@ -16,6 +16,7 @@ const viewRouter = require('./routes/viewRoutes');
 const bookingRouter = require('./routes/bookingRoutes');
 const AppError = require('./utils/appError');
 const globalErrorHandler = require('./controllers/errorController');
+const { webhookCheckout } = require('./controllers/bookingController');
 
 const app = express();
 
@@ -48,6 +49,8 @@ const limiter = rateLimit({
 });
 
 app.use('/api', limiter);
+
+app.post('/webhook-checkout', express.raw(), webhookCheckout);
 
 //Body parser
 app.use(express.json({ limit: '10kb' }));

@@ -7,6 +7,7 @@ const hpp = require('hpp');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
+const compression = require('compression');
 const tourRouter = require('./routes/tourRoutes');
 const userRouter = require('./routes/userRoutes');
 const reviewRouter = require('./routes/reviewRoutes');
@@ -64,6 +65,8 @@ app.use(
     ],
   })
 );
+
+app.use(compression());
 
 app.use((req, res, next) => {
   next();

@@ -87,7 +87,7 @@ reviewSchema.pre(/^findOneAnd/, async function (next) {
   So, the trick right below is a little hack to gain access to the document
    */
   this.r = await this.findOne(); // and now we persisted data through the lifecycle
-  console.log(this.r);
+  // console.log(this.r);
   next();
 });
 
